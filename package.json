@@ -1,17 +1,20 @@
 {
-  "name": "vjs-html5-dash",
+  "name": "videojs-html5-dash",
   "version": "0.1.0",
   "description": "video.js HTML5 source handler for the MPEG-DASH specification",
+  "license": "Apache-2",
+  "author": "Brightcove",
   "keywords": [
-    "require",
-    "global",
-    "module",
-    "QUnit",
-    "sinon"
+    "videojs",
+    "video",
+    "dash",
+    "html",
+    "html5",
+    "player"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/cpillsbury/vjs-html5-dash.git"
+    "url": "https://github.com/dmlap/videojs-html5-dash.git"
   },
   "dependencies": {
     "global": "^4.3.0",
@@ -35,7 +38,5 @@
     "karma-sinon": "^1.0.4",
     "sinon": "^1.12.2"
   },
-  "main": "./src/js/main.js",
-  "author": "Christian Pillsbury",
-  "license": "ISC"
+  "main": "./src/js/main.js"
 }
