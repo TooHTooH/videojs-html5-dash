@@ -1824,6 +1824,8 @@ function loadManifest(url, callback) {
         request = new XMLHttpRequest(),
         onload;
 
+    request.overrideMimeType('application/xml');
+
     onload = function () {
         if (request.status < 200 || request.status > 299) { return; }
 
@@ -1835,11 +1837,12 @@ function loadManifest(url, callback) {
         request.open('GET', url, true);
         request.send();
     } catch(e) {
-        request.onerror();
+        request.onerror(e);
     }
 }
 
 module.exports = loadManifest;
+
 },{"../dash/mpd/getDashUtil.js":7}],18:[function(require,module,exports){
 'use strict';
 

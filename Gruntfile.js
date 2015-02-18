@@ -24,6 +24,10 @@ module.exports = function(grunt) {
                         debug: true
                     }
                 }
+            },
+            test: {
+              src: 'test/main.js',
+              dest: 'dist/tests.js'
             }
         },
         jshint: {
@@ -65,12 +69,21 @@ module.exports = function(grunt) {
           }
         },
         watch: {
-          files: ['src*//*', 'test/**/*.js'],
-          tasks: ['karma']
+          files: ['src/**/*.js', 'test/**/*.js', 'test/index.html'],
+          tasks: ['browserify:dev', 'browserify:test', 'jshint']
+        },
+        connect: {
+            server: {
+                options: {
+                    port: '8888',
+                    keepalive: true
+                }
+            }
         }
     });
 
     grunt.loadNpmTasks('grunt-contrib-clean');
+    grunt.loadNpmTasks('grunt-contrib-connect');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-contrib-jshint');
@@ -78,7 +91,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-karma');
 
     grunt.registerTask('default', ['clean', 'jshint', 'browserify:dist', 'uglify:dist']);
-    grunt.registerTask('dev', ['clean', 'jshint', 'browserify:dev', 'uglify:dev']);
+    grunt.registerTask('dev', ['clean', 'jshint', 'browserify:dev', 'karma', 'watch']);
     grunt.registerTask('all', ['clean', 'jshint', 'browserify:dist', 'browserify:dev', 'uglify:dist', 'uglify:dev']);
     grunt.registerTask('test', ['karma']);
 };
