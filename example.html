@@ -66,5 +66,26 @@
     <!--<source src="http://eu1.eastmark.net/pdash/testpic_6s/ManifestController.mpd" type='application/dash+xml'>-->
     <!--<source src="http://b028.wpc.azureedge.net/80B028/SampleStream/49be9c8c-0317-470f-94a2-7472732dc844/2cfaa74d-196a-4125-9c22-b84cbe4e9df9.ism/ManifestController(format=mpd-time-csf)" type='application/dash+xml'>-->
 </video>
+<script>
+  var player = videojs('vid1');
+
+  // if "mediakeymessage" is triggered, the video is encrypted and
+  // requires a license
+  player.on('mediakeymessage', function(event) {
+
+    // make a request to the example license server
+    var xhr = new XMLHttpRequest();
+    xhr.responseType = 'arraybuffer';
+    xhr.open('POST', 'http://widevine-proxy.appspot.com/proxy');
+    xhr.onreadystatechange = function() {
+      if (this.readyState === 4) {
+
+        // supply the license to the active media key session
+        return event.mediaKeySession.update(new Uint8Array(this.response));
+      }
+    };
+    xhr.send(event.message);
+  });
+</script>
 </body>
 </html>

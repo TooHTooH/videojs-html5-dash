@@ -173,11 +173,11 @@ QUnit.test('successful static type MPD load updates properties based on XML', fu
         var mediaSets = manifestController.getMediaSets(),
             videoMediaSet = manifestController.getMediaSetByType('video'),
             audioMediaSet = manifestController.getMediaSetByType('audio');
-        assert.strictEqual(mediaSets.length, 2, '');
-        assert.strictEqual(videoMediaSet.getMediaType(), 'video', '');
-        assert.strictEqual(audioMediaSet.getMediaType(), 'audio', '');
-        assert.strictEqual(videoMediaSet.getMimeType(), 'video/mp4', '');
-        assert.strictEqual(audioMediaSet.getMimeType(), 'audio/mp4', '');
+      assert.strictEqual(mediaSets.length, 2, '', 'parsed two media sets');
+        assert.strictEqual(videoMediaSet.getMediaType(), 'video', 'parsed a video media set');
+        assert.strictEqual(audioMediaSet.getMediaType(), 'audio', 'parsed an audio media set');
+        assert.strictEqual(videoMediaSet.getMimeType(), 'video/mp4', 'set the video mime type');
+        assert.strictEqual(audioMediaSet.getMimeType(), 'audio/mp4', 'set the audio mime type');
         done();
     });
 

@@ -137,7 +137,7 @@ MediaSet.prototype.getAvailableBandwidths = function getAvailableBandwidths() {
 };
 
 module.exports = MediaSet;
-},{"./dash/segments/getSegmentListForRepresentation.js":9,"./manifest/MediaTypes.js":16,"./util/existy.js":20,"./util/findElementInArray.js":22,"./util/getMediaTypeFromMimeType.js":23}],3:[function(require,module,exports){
+},{"./dash/segments/getSegmentListForRepresentation.js":9,"./manifest/MediaTypes.js":17,"./util/existy.js":21,"./util/findElementInArray.js":23,"./util/getMediaTypeFromMimeType.js":24}],3:[function(require,module,exports){
 'use strict';
 
 var existy = require('./util/existy.js'),
@@ -257,7 +257,7 @@ MediaTypeLoader.prototype.eventList = {
     DOWNLOAD_DATA_UPDATE: 'downloadDataUpdate'
 };
 
-MediaTypeLoader.prototype.getMediaType = function() { return this.getMediaSet().getMediaType(); };
+MediaTypeLoader.prototype.getMediaType = function() { return this.__mediaType; };
 
 MediaTypeLoader.prototype.getMediaSet = function() { return this.__manifestController.getMediaSetByType(this.__mediaType); };
 
@@ -464,7 +464,8 @@ MediaTypeLoader.prototype.__loadAndBufferSegment = function loadAndBufferSegment
 extendObject(MediaTypeLoader.prototype, EventDispatcherMixin);
 
 module.exports = MediaTypeLoader;
-},{"./events/EventDispatcherMixin.js":11,"./segments/loadSegment.js":18,"./util/existy.js":20,"./util/extendObject.js":21,"./util/isNumber.js":26}],4:[function(require,module,exports){
+
+},{"./events/EventDispatcherMixin.js":12,"./segments/loadSegment.js":19,"./util/existy.js":21,"./util/extendObject.js":22,"./util/isNumber.js":27}],4:[function(require,module,exports){
 'use strict';
 
 var existy = require('./util/existy.js'),
@@ -582,7 +583,7 @@ function PlaylistLoader(manifestController, mediaSource, tech) {
 }
 
 module.exports = PlaylistLoader;
-},{"./MediaTypeLoader.js":3,"./SourceBufferDataQueue.js":5,"./manifest/MediaTypes.js":16,"./selectSegmentList.js":19,"./util/existy.js":20}],5:[function(require,module,exports){
+},{"./MediaTypeLoader.js":3,"./SourceBufferDataQueue.js":5,"./manifest/MediaTypes.js":17,"./selectSegmentList.js":20,"./util/existy.js":21}],5:[function(require,module,exports){
 'use strict';
 
 var isFunction = require('./util/isFunction.js'),
@@ -701,10 +702,11 @@ SourceBufferDataQueue.prototype.getBufferedTimeRangeListAlignedToSegmentDuration
 extendObject(SourceBufferDataQueue.prototype, EventDispatcherMixin);
 
 module.exports = SourceBufferDataQueue;
-},{"./events/EventDispatcherMixin.js":11,"./util/existy.js":20,"./util/extendObject.js":21,"./util/isArray.js":24,"./util/isFunction.js":25,"./util/isNumber.js":26}],6:[function(require,module,exports){
+},{"./events/EventDispatcherMixin.js":12,"./util/existy.js":21,"./util/extendObject.js":22,"./util/isArray.js":25,"./util/isFunction.js":26,"./util/isNumber.js":27}],6:[function(require,module,exports){
 'use strict';
 
 var MediaSource = require('global/window').MediaSource,
+    Decrypter = require('./decrypter'),
     ManifestController = require('./manifest/ManifestController.js'),
     PlaylistLoader = require('./PlaylistLoader.js');
 
@@ -720,7 +722,8 @@ var MediaSource = require('global/window').MediaSource,
  */
 function SourceHandler(source, tech) {
     var self = this,
-        manifestController = new ManifestController(source.src, false);
+        manifestController = new ManifestController(source.src, false),
+        decrypter = new Decrypter(tech);
 
     manifestController.one(manifestController.eventList.MANIFEST_LOADED, function(event) {
         var mediaSource = new MediaSource(),
@@ -743,7 +746,7 @@ function SourceHandler(source, tech) {
 
 module.exports = SourceHandler;
 
-},{"./PlaylistLoader.js":4,"./manifest/ManifestController.js":15,"global/window":1}],7:[function(require,module,exports){
+},{"./PlaylistLoader.js":4,"./decrypter":11,"./manifest/ManifestController.js":16,"global/window":1}],7:[function(require,module,exports){
 'use strict';
 
 var parseRootUrl,
@@ -1069,7 +1072,7 @@ getAncestorObjectByName = function getAncestorObjectByName(xmlNode, tagName, map
 };
 
 module.exports = getMpd;
-},{"../../getXmlFun.js":13,"../../util/isArray.js":24,"../../util/isFunction.js":25,"../../util/isString.js":27,"./getDashUtil.js":7}],9:[function(require,module,exports){
+},{"../../getXmlFun.js":14,"../../util/isArray.js":25,"../../util/isFunction.js":26,"../../util/isString.js":28,"./getDashUtil.js":7}],9:[function(require,module,exports){
 'use strict';
 
 var existy = require('../../util/existy.js'),
@@ -1163,8 +1166,21 @@ getTimeShiftBufferDepth = function(representation) {
 };
 
 getSegmentDurationFromTemplate = function(representation) {
-    var segmentTemplate = representation.getSegmentTemplate();
-    return Number(segmentTemplate.getDuration()) / Number(segmentTemplate.getTimescale());
+    var segmentTemplate = representation.getSegmentTemplate(),
+        duration = +segmentTemplate.getDuration(),
+        timescale = +segmentTemplate.getTimescale(),
+        segments,
+        durations;
+
+    if (!duration) {
+        segments = segmentTemplate.xml[0].querySelectorAll('S[d]');
+        durations = Array.prototype.map.call(segments, function(segment) {
+            return +segment.getAttribute('d');
+        });
+        duration = Math.max.apply(null, durations);
+    }
+
+    return duration / timescale;
 };
 
 getTotalSegmentCountFromTemplate = function(representation) {
@@ -1203,7 +1219,7 @@ createSegmentListFromTemplate = function(representationXml) {
                     initializationRelativeUrl = segmentTemplate.replaceIDForTemplate(initializationRelativeUrlTemplate, representationId);
 
                 initializationRelativeUrl = segmentTemplate.replaceTokenForTemplate(initializationRelativeUrl, 'Bandwidth', representationXml.getBandwidth());
-                return baseUrl + initializationRelativeUrl;
+                return [baseUrl, initializationRelativeUrl].join('/');
             };
             return initialization;
         },
@@ -1226,7 +1242,7 @@ createSegmentFromTemplateByNumber = function(representation, number) {
         replacedTokensUrl = segmentTemplate.replaceTokenForTemplate(replacedIdUrl, 'Number', number);
         replacedTokensUrl = segmentTemplate.replaceTokenForTemplate(replacedTokensUrl, 'Bandwidth', representation.getBandwidth());
 
-        return baseUrl + replacedTokensUrl;
+      return [baseUrl, replacedTokensUrl].join('/');
     };
     segment.getStartTime = function() {
         return (number - getStartNumberFromTemplate(representation)) * getSegmentDurationFromTemplate(representation);
@@ -1289,7 +1305,7 @@ function getSegmentListForRepresentation(representation) {
 
 module.exports = getSegmentListForRepresentation;
 
-},{"../../getXmlFun.js":13,"../../util/existy.js":20,"../mpd/getDashUtil.js":7,"./getSegmentTemplate":10}],10:[function(require,module,exports){
+},{"../../getXmlFun.js":14,"../../util/existy.js":21,"../mpd/getDashUtil.js":7,"./getSegmentTemplate":10}],10:[function(require,module,exports){
 'use strict';
 
 var segmentTemplate,
@@ -1397,6 +1413,164 @@ module.exports = function getSegmentTemplate() { return segmentTemplate; };
 },{}],11:[function(require,module,exports){
 'use strict';
 
+var videojs = require('global/window').videojs,
+    MediaKeys,
+    MediaKeySession,
+
+    // widevine is the only implemented CDM in EME v0.1b
+    // future EME recommends key systems are specified ahead of
+    // loading media
+    KEY_SYSTEM = 'com.widevine.alpha';
+
+// ---------
+// Decrypter
+// ---------
+
+module.exports = function Decrypter(tech) {
+  var player = tech.player(),
+      video =  tech.el(),
+      requestKey, createKeySession, session;
+
+  requestKey = function(event) {
+    if (!(event.keySystem === '' || event.keySystem === KEY_SYSTEM) ||
+        !video.canPlayType('video/mp4', KEY_SYSTEM)) {
+      return player.error({
+        // MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+        // use the constant to avoid conflicts with monkey-patchers
+        code: 4,
+        message: 'Unsupported key system: "' + event.keySystem + '"'
+      });
+    }
+
+    // create a session to track data related to this set of CDM
+    // interactions
+    session = player.mediaKeys().createSession('temporary', event);
+
+    // Request keys from the CDM. The keys are sent to the license
+    // server to validate this player's license request.
+    // https://w3c.github.io/encrypted-media/initdata-format-registry.html
+    session.generateRequest('cenc', event.initData);
+  };
+
+  createKeySession = function(event) {
+    if (!event.message) {
+      return player.error({
+        // MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+        // use the constant to avoid conflicts with monkey-patchers
+        code: 4,
+        message: 'Key request generated an invalid response'
+      });
+    }
+    player.trigger({
+      type: 'mediakeymessage',
+      originalEvent: event,
+      message: event.message,
+      mediaKeySession: session
+    });
+  };
+
+  // setup EME v0.1b event handlers
+  // see https://dvcs.w3.org/hg/html-media/raw-file/eme-v0.1b/encrypted-media/encrypted-media.html
+  if ('onwebkitneedkey' in video) {
+    video.addEventListener('webkitneedkey', requestKey);
+    video.addEventListener('webkitkeymessage', createKeySession);
+  } else if ('onneedkey' in video) {
+    video.addEventListener('needkey', requestKey);
+    video.addEventListener('keymessage', createKeySession);
+  } else {
+    throw new Error('No compatible content protection system detected');
+  }
+};
+
+// -------------
+// EME Emulation
+// -------------
+
+/**
+ * The MediaKeys object represents a set of keys that an associated
+ * HTMLMediaElement can use for decryption of media data during
+ * playback. It also represents a CDM instance.
+ * https://w3c.github.io/encrypted-media/#idl-def-MediaKeys
+ */
+MediaKeys = function MediaKeys(player) {
+  this.activeMediaKeySessions_ = [];
+  this.player_ = player;
+};
+MediaKeys.prototype = new videojs.EventEmitter();
+MediaKeys.prototype.activeMediaKeySessions = function() {
+  return this.activeMediaKeySessions_;
+};
+
+/**
+ * Returns a new MediaKeySession object.
+ * @param type {string}
+ * @see https://w3c.github.io/encrypted-media/#widl-MediaKeys-createSession-MediaKeySession-MediaKeySessionType-sessionType
+ */
+MediaKeys.prototype.createSession = function(type, options) {
+  var video = this.player_.el().querySelector('.vjs-tech'),
+      keySession = new MediaKeySession(video, options);
+  this.activeMediaKeySessions().push(keySession);
+  return keySession;
+};
+
+/**
+ * A Media Key Session, or simply Session, provides a context for
+ * message exchange with the CDM as a result of which key(s) are made
+ * available to the CDM. Sessions are embodied as MediaKeySession
+ * objects. Each Key session is associated with a single instance of
+ * Initialization Data provided in the generateRequest() call.
+ * @see https://w3c.github.io/encrypted-media/#idl-def-MediaKeySession
+ */
+MediaKeySession = function MediaKeySession(video, options) {
+  this.video_ = video;
+  this.sessionId_ = options.sessionId;
+};
+MediaKeySession.prototype = new videojs.EventEmitter();
+
+/**
+ * Generates a request based on the initData.
+ * @param initDataType {string} a string that indicates what format
+ * the initialization data is provided in.
+ * @param initData {BufferSource} a block of initialization data
+ * containing information about the stream to be decrypted
+ * @see https://w3c.github.io/encrypted-media/#widl-MediaKeySession-generateRequest-Promise-void--DOMString-initDataType-BufferSource-initData
+ */
+MediaKeySession.prototype.generateRequest = function(initDataType, initData) {
+  // expose sessionId, step 9.9
+  this.sessionId = this.sessionId_;
+  // trigger a message event, step 9.11
+  this.video_.webkitGenerateKeyRequest(KEY_SYSTEM, initData);
+};
+
+/**
+ * Provides messages, including licenses, to the CDM.
+ * @param response {BufferSource} A message to be provided to the
+ * CDM. The contents are Key System-specific. It must not contain
+ * executable code.
+ * @return {Promise<void>}
+ * @see https://w3c.github.io/encrypted-media/#widl-MediaKeySession-update-Promise-void--BufferSource-response
+ */
+MediaKeySession.prototype.update = function(buffer) {
+  this.video_.webkitAddKey(KEY_SYSTEM, buffer, this.sessionId);
+};
+
+// -----------------
+// Player Extensions
+// -----------------
+
+/**
+ * The MediaKeys being used when decrypting encrypted media data for
+ * this media element.
+ * @see https://w3c.github.io/encrypted-media/#widl-HTMLMediaElement-mediaKeys
+ */
+videojs.Player.prototype.mediaKeys = function() {
+  this.mediaKeys_ = this.mediaKeys_ || new MediaKeys(this);
+  return this.mediaKeys_;
+};
+
+},{"global/window":1}],12:[function(require,module,exports){
+'use strict';
+
 var getEventMgr = require('./getEventManager.js'),
     eventMgr = getEventMgr(),
     eventDispatcherMixin = {
@@ -1407,7 +1581,7 @@ var getEventMgr = require('./getEventManager.js'),
     };
 
 module.exports = eventDispatcherMixin;
-},{"./getEventManager.js":12}],12:[function(require,module,exports){
+},{"./getEventManager.js":13}],13:[function(require,module,exports){
 'use strict';
 
 var videojs = require('global/window').videojs,
@@ -1420,7 +1594,7 @@ var videojs = require('global/window').videojs,
 
 module.exports = function getEventManager() { return eventManager; };
 
-},{"global/window":1}],13:[function(require,module,exports){
+},{"global/window":1}],14:[function(require,module,exports){
 'use strict';
 
 // TODO: Refactor to separate js files & modules & remove from here.
@@ -1566,7 +1740,7 @@ xmlFun.getInheritableElement = getInheritableElement;
 xmlFun.getMultiLevelElementList = getMultiLevelElementList;
 
 module.exports = function getXmlFun() { return xmlFun; };
-},{"./util/existy.js":20,"./util/isFunction.js":25,"./util/isString.js":27}],14:[function(require,module,exports){
+},{"./util/existy.js":21,"./util/isFunction.js":26,"./util/isString.js":28}],15:[function(require,module,exports){
 /**
  *
  * main source for packaged code. Auto-bootstraps the source handling functionality by registering the source handler
@@ -1639,7 +1813,7 @@ module.exports = function getXmlFun() { return xmlFun; };
 
 }.call(this));
 
-},{"./SourceHandler":6,"global/window":1}],15:[function(require,module,exports){
+},{"./SourceHandler":6,"global/window":1}],16:[function(require,module,exports){
 'use strict';
 
 var existy = require('../util/existy.js'),
@@ -1787,13 +1961,23 @@ ManifestController.prototype.getMpd = function() {
  * @returns {MediaSet}
  */
 ManifestController.prototype.getMediaSetByType = function getMediaSetByType(type) {
-    if (mediaTypes.indexOf(type) < 0) { throw new Error('Invalid type. Value must be one of: ' + mediaTypes.join(', ')); }
-    var adaptationSets = getMpd(this.__manifest).getPeriods()[0].getAdaptationSets(),
-        adaptationSetWithTypeMatch = findElementInArray(adaptationSets, function(adaptationSet) {
-            return (getMediaTypeFromMimeType(adaptationSet.getMimeType(), mediaTypes) === type);
-        });
-    if (!existy(adaptationSetWithTypeMatch)) { return null; }
-    return new MediaSet(adaptationSetWithTypeMatch);
+    var adaptationSet;
+    if (mediaTypes.indexOf(type) < 0) {
+        throw new Error('Invalid type. Value must be one of: ' + mediaTypes.join(', '));
+    }
+    // find the first adaptation set that has a mime type compatible
+    // with "type" specified on itself or one of its child
+    // representations
+    adaptationSet = getMpd(this.__manifest).getPeriods()[0].getAdaptationSets()
+        .filter(function(adaptationSet) {
+            var mimeType = adaptationSet.xml.getAttribute('mimeType') || '';
+            if (mimeType.indexOf(type) === 0) {
+                return adaptationSet;
+            }
+            return adaptationSet.xml
+                .querySelector('Representation[mimeType^="' + type + '"]');
+        })[0];
+    return adaptationSet ? new MediaSet(adaptationSet) : null;
 };
 
 /**
@@ -1810,9 +1994,10 @@ ManifestController.prototype.getMediaSets = function getMediaSets() {
 extendObject(ManifestController.prototype, EventDispatcherMixin);
 
 module.exports = ManifestController;
-},{"../MediaSet.js":2,"../dash/mpd/getDashUtil.js":7,"../dash/mpd/getMpd.js":8,"../events/EventDispatcherMixin.js":11,"../util/existy.js":20,"../util/extendObject.js":21,"../util/findElementInArray.js":22,"../util/getMediaTypeFromMimeType.js":23,"../util/isArray.js":24,"../util/isFunction.js":25,"../util/isString.js":27,"../util/truthy.js":28,"./MediaTypes.js":16,"./loadManifest.js":17}],16:[function(require,module,exports){
+
+},{"../MediaSet.js":2,"../dash/mpd/getDashUtil.js":7,"../dash/mpd/getMpd.js":8,"../events/EventDispatcherMixin.js":12,"../util/existy.js":21,"../util/extendObject.js":22,"../util/findElementInArray.js":23,"../util/getMediaTypeFromMimeType.js":24,"../util/isArray.js":25,"../util/isFunction.js":26,"../util/isString.js":28,"../util/truthy.js":29,"./MediaTypes.js":17,"./loadManifest.js":18}],17:[function(require,module,exports){
 module.exports = ['video', 'audio'];
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict';
 
 var getDashUtil = require('../dash/mpd/getDashUtil.js'),
@@ -1843,7 +2028,7 @@ function loadManifest(url, callback) {
 
 module.exports = loadManifest;
 
-},{"../dash/mpd/getDashUtil.js":7}],18:[function(require,module,exports){
+},{"../dash/mpd/getDashUtil.js":7}],19:[function(require,module,exports){
 'use strict';
 
 var isFunction = require('../util/isFunction.js');
@@ -1900,7 +2085,7 @@ function loadSegment(segment, successFn, failFn, thisArg) {
 }
 
 module.exports = loadSegment;
-},{"../util/isFunction.js":25}],19:[function(require,module,exports){
+},{"../util/isFunction.js":26}],20:[function(require,module,exports){
 'use strict';
 
 function compareSegmentListsByBandwidthAscending(segmentListA, segmentListB) {
@@ -1962,13 +2147,13 @@ function selectSegmentList(mediaSet, data) {
 }
 
 module.exports = selectSegmentList;
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 'use strict';
 
 function existy(x) { return (x !== null) && (x !== undefined); }
 
 module.exports = existy;
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 'use strict';
 
 // Extend a given object with all the properties (and their values) found in the passed-in object(s).
@@ -1991,7 +2176,7 @@ var extendObject = function(obj /*, extendObject1, extendObject2, ..., extendObj
 };
 
 module.exports = extendObject;
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 'use strict';
 
 var isArray = require('./isArray.js'),
@@ -2013,7 +2198,7 @@ findElementInArray = function(array, predicateFn) {
 };
 
 module.exports = findElementInArray;
-},{"./isArray.js":24,"./isFunction.js":25}],23:[function(require,module,exports){
+},{"./isArray.js":25,"./isFunction.js":26}],24:[function(require,module,exports){
 'use strict';
 
 var existy = require('./existy.js'),
@@ -2040,7 +2225,7 @@ getMediaTypeFromMimeType = function(mimeType, types) {
 };
 
 module.exports = getMediaTypeFromMimeType;
-},{"./existy.js":20,"./findElementInArray.js":22,"./isString.js":27}],24:[function(require,module,exports){
+},{"./existy.js":21,"./findElementInArray.js":23,"./isString.js":28}],25:[function(require,module,exports){
 'use strict';
 
 var genericObjType = function(){},
@@ -2051,7 +2236,7 @@ function isArray(obj) {
 }
 
 module.exports = isArray;
-},{}],25:[function(require,module,exports){
+},{}],26:[function(require,module,exports){
 'use strict';
 
 var genericObjType = function(){},
@@ -2068,7 +2253,7 @@ if (isFunction(/x/)) {
 }
 
 module.exports = isFunction;
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 'use strict';
 
 var genericObjType = function(){},
@@ -2080,7 +2265,7 @@ function isNumber(value) {
 }
 
 module.exports = isNumber;
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 'use strict';
 
 var genericObjType = function(){},
@@ -2092,7 +2277,7 @@ var isString = function isString(value) {
 };
 
 module.exports = isString;
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 'use strict';
 
 var existy = require('./existy.js');
@@ -2104,4 +2289,4 @@ var existy = require('./existy.js');
 function truthy(x) { return (x !== false) && existy(x); }
 
 module.exports = truthy;
-},{"./existy.js":20}]},{},[14]);
+},{"./existy.js":21}]},{},[15]);

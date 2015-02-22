@@ -117,7 +117,7 @@ MediaTypeLoader.prototype.eventList = {
     DOWNLOAD_DATA_UPDATE: 'downloadDataUpdate'
 };
 
-MediaTypeLoader.prototype.getMediaType = function() { return this.getMediaSet().getMediaType(); };
+MediaTypeLoader.prototype.getMediaType = function() { return this.__mediaType; };
 
 MediaTypeLoader.prototype.getMediaSet = function() { return this.__manifestController.getMediaSetByType(this.__mediaType); };
 
