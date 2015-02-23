@@ -66,17 +66,14 @@ Q.test('errors if an unsupported key system is detected', function() {
 });
 
 Q.test('throws early if used in a browser without EME support', function() {
-  try {
+  Q.throws(function() {
     new Decrypter({
       player: Function.prototype,
       el: function() {
         return {};
       }
     });
-  } catch (e) {
-    return Q.ok(e, 'threw an error on construction');
-  }
-  Q.ok(false, 'threw an error on construction');
+  }, 'threw an error on construction');
 });
 
 Q.test('requests keys', function() {
