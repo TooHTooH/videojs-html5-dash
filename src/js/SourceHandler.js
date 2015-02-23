@@ -1,6 +1,7 @@
 'use strict';
 
 var MediaSource = require('global/window').MediaSource,
+    Decrypter = require('./decrypter'),
     ManifestController = require('./manifest/ManifestController.js'),
     PlaylistLoader = require('./PlaylistLoader.js');
 
@@ -16,7 +17,8 @@ var MediaSource = require('global/window').MediaSource,
  */
 function SourceHandler(source, tech) {
     var self = this,
-        manifestController = new ManifestController(source.src, false);
+        manifestController = new ManifestController(source.src, false),
+        decrypter = new Decrypter(tech);
 
     manifestController.one(manifestController.eventList.MANIFEST_LOADED, function(event) {
         var mediaSource = new MediaSource(),

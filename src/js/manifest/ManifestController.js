@@ -145,13 +145,23 @@ ManifestController.prototype.getMpd = function() {
  * @returns {MediaSet}
  */
 ManifestController.prototype.getMediaSetByType = function getMediaSetByType(type) {
-    if (mediaTypes.indexOf(type) < 0) { throw new Error('Invalid type. Value must be one of: ' + mediaTypes.join(', ')); }
-    var adaptationSets = getMpd(this.__manifest).getPeriods()[0].getAdaptationSets(),
-        adaptationSetWithTypeMatch = findElementInArray(adaptationSets, function(adaptationSet) {
-            return (getMediaTypeFromMimeType(adaptationSet.getMimeType(), mediaTypes) === type);
-        });
-    if (!existy(adaptationSetWithTypeMatch)) { return null; }
-    return new MediaSet(adaptationSetWithTypeMatch);
+    var adaptationSet;
+    if (mediaTypes.indexOf(type) < 0) {
+        throw new Error('Invalid type. Value must be one of: ' + mediaTypes.join(', '));
+    }
+    // find the first adaptation set that has a mime type compatible
+    // with "type" specified on itself or one of its child
+    // representations
+    adaptationSet = getMpd(this.__manifest).getPeriods()[0].getAdaptationSets()
+        .filter(function(adaptationSet) {
+            var mimeType = adaptationSet.xml.getAttribute('mimeType') || '';
+            if (mimeType.indexOf(type) === 0) {
+                return adaptationSet;
+            }
+            return adaptationSet.xml
+                .querySelector('Representation[mimeType^="' + type + '"]');
+        })[0];
+    return adaptationSet ? new MediaSet(adaptationSet) : null;
 };
 
 /**

@@ -91,8 +91,21 @@ getTimeShiftBufferDepth = function(representation) {
 };
 
 getSegmentDurationFromTemplate = function(representation) {
-    var segmentTemplate = representation.getSegmentTemplate();
-    return Number(segmentTemplate.getDuration()) / Number(segmentTemplate.getTimescale());
+    var segmentTemplate = representation.getSegmentTemplate(),
+        duration = +segmentTemplate.getDuration(),
+        timescale = +segmentTemplate.getTimescale(),
+        segments,
+        durations;
+
+    if (!duration) {
+        segments = segmentTemplate.xml[0].querySelectorAll('S[d]');
+        durations = Array.prototype.map.call(segments, function(segment) {
+            return +segment.getAttribute('d');
+        });
+        duration = Math.max.apply(null, durations);
+    }
+
+    return duration / timescale;
 };
 
 getTotalSegmentCountFromTemplate = function(representation) {
@@ -131,7 +144,7 @@ createSegmentListFromTemplate = function(representationXml) {
                     initializationRelativeUrl = segmentTemplate.replaceIDForTemplate(initializationRelativeUrlTemplate, representationId);
 
                 initializationRelativeUrl = segmentTemplate.replaceTokenForTemplate(initializationRelativeUrl, 'Bandwidth', representationXml.getBandwidth());
-                return baseUrl + initializationRelativeUrl;
+                return [baseUrl, initializationRelativeUrl].join('/');
             };
             return initialization;
         },
@@ -154,7 +167,7 @@ createSegmentFromTemplateByNumber = function(representation, number) {
         replacedTokensUrl = segmentTemplate.replaceTokenForTemplate(replacedIdUrl, 'Number', number);
         replacedTokensUrl = segmentTemplate.replaceTokenForTemplate(replacedTokensUrl, 'Bandwidth', representation.getBandwidth());
 
-        return baseUrl + replacedTokensUrl;
+      return [baseUrl, replacedTokensUrl].join('/');
     };
     segment.getStartTime = function() {
         return (number - getStartNumberFromTemplate(representation)) * getSegmentDurationFromTemplate(representation);
